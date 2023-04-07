@@ -15,3 +15,41 @@
  */
 
 package com.example.android.devbyteviewer.repository
+
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.Transformations
+import com.example.android.devbyteviewer.database.VideosDatabase
+import com.example.android.devbyteviewer.database.asDomainModel
+import com.example.android.devbyteviewer.domain.DevByteVideo
+import com.example.android.devbyteviewer.network.DevByteNetwork
+import com.example.android.devbyteviewer.network.asDatabaseModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import timber.log.Timber
+
+/**
+ * Repository for fetching devbyte videos from the network and storing them on disk
+ */
+class VideosRepository(private val database: VideosDatabase) {
+
+    //об’єкт LiveDataдля читання списку відтворення відео з бази даних
+    val videos: LiveData<List<DevByteVideo>> = Transformations.map(database.videoDao.getVideos()) {
+        it.asDomainModel()
+    }
+
+    /**
+     * Оновіть відео, збережені в автономному кеші.
+     * Ця функція використовує диспетчер вводу-виведення, щоб гарантувати, що операція вставки
+     * бази даних виконується на диспетчері вводу-виводу. Після перемикання на диспетчер
+     * введення-виведення за допомогою withContext цю функцію тепер можна безпечно викликати з
+     * будь-якого потоку, включаючи головний потік.
+     *
+     */
+    suspend fun refreshVideos() {
+        withContext(Dispatchers.IO) {
+            Timber.d("refresh videos is called");
+            val playlist = DevByteNetwork.devbytes.getPlaylist()
+            database.videoDao.insertAll(playlist.asDatabaseModel())
+        }
+    }
+}
