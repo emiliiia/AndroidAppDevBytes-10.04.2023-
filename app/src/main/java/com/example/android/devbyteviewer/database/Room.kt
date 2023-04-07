@@ -15,3 +15,39 @@
  */
 
 package com.example.android.devbyteviewer.database
+
+import android.content.Context
+import androidx.lifecycle.LiveData
+import androidx.room.*
+
+
+@Dao
+interface VideoDao {
+    @Query("select * from databasevideo")
+    fun getVideos(): LiveData<List<DatabaseVideo>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertAll( videos: List<DatabaseVideo>)
+}
+
+@Database(entities = [DatabaseVideo::class], version = 1)
+//представляє таблицю бази даних
+abstract class VideosDatabase: RoomDatabase() {
+    abstract val videoDao: VideoDao
+}
+
+private lateinit var INSTANCE: VideosDatabase
+
+//повертає інстанс VideosDatabase із контекстом додатка як параметром
+fun getDatabase(context: Context): VideosDatabase {
+    //використовується, щоб гарантувати, що два потоки не зможуть одночасно створити два інстанси бази даних
+    synchronized(VideosDatabase::class.java) {
+        if (!::INSTANCE.isInitialized) {
+            //передаємо контекст додатка, клас бази даних та назву бази даних
+            INSTANCE = Room.databaseBuilder(context.applicationContext,
+                VideosDatabase::class.java,
+                "videos").build()
+        }
+    }
+    return INSTANCE
+}
